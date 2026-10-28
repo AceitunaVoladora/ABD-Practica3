@@ -1,0 +1,8 @@
+# Entorno de uv y caches de Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Credenciales locales, por si acaso
+.env
