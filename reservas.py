@@ -21,7 +21,7 @@ def reservar(r: redis.Redis, evento_id, asiento, usuario_id,
 
     Dos usuarios que lo intenten a la vez: **solo uno** puede conseguirlo.
     """
-    return r.set(clave(evento_id, asiento), str(usuario_id), nx = True, ex=segundos) #nx: not exists, escribe solo si no existe
+    return r.set(clave(evento_id, asiento), str(usuario_id), nx = True, ex=segundos) is True #nx: not exists, escribe solo si no existe
 
 
 def propietario(r: redis.Redis, evento_id, asiento) -> str | None:
@@ -62,7 +62,7 @@ def confirmar(r: redis.Redis, evento_id, asiento, usuario_id) -> bool:
     """
     script = """
     if redis.call('GET', KEYS[1]) == ARGV[1] then
-        return redis.call('PERSIST', KEYS[1])
+        redis.call('PERSIST', KEYS[1])
         return 1
     end
     return 0
