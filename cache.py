@@ -22,8 +22,8 @@ class CacheDocumentos:
     def configurar_limite(self, memoria: str = MEMORIA_MAXIMA,
                           politica: str = POLITICA_DESALOJO) -> None:
         """Fija el límite de memoria y la política de desalojo de la caché."""
-        self.redis.config_set("maxmemory", memoria)
-        self.redis.config_set("maxmemory-policy", politica)
+        self._r.config_set("maxmemory", memoria)
+        self._r.config_set("maxmemory-policy", politica)
 
     @staticmethod
     def clave(coleccion: str, id_documento) -> str:
@@ -35,7 +35,7 @@ class CacheDocumentos:
 
         Cada acceso debe **renovar la caducidad** a `self.ttl`.
         """
-        valor = self.redis.getex(self.clave(coleccion, id_documento), ex = self.ttl)
+        valor = self._r.getex(self.clave(coleccion, id_documento), ex = self.ttl)
         
         if valor is None:
             return None
@@ -49,14 +49,14 @@ class CacheDocumentos:
         fechas y los ObjectId como ObjectId.
         """
 
-        self.redis.set(self.clave(coleccion, id_documento), json_util.dumps(documento), ex = self.ttl)
+        self._r.set(self.clave(coleccion, id_documento), json_util.dumps(documento), ex = self.ttl)
         
 
     def invalidar(self, coleccion: str, id_documento) -> bool:
         """Saca el documento de la caché. Devuelve si estaba."""
 
-        return self.redis.delete(self.clave(coleccion, id_documento)) == 1
+        return self._r.delete(self.clave(coleccion, id_documento)) == 1
 
     def caducidad(self, coleccion: str, id_documento) -> int:
         """Segundos restantes. -1 si no caduca, -2 si no existe."""
-        return self.redis.ttl(self.clave(coleccion, id_documento))
+        return self._r.ttl(self.clave(coleccion, id_documento))
