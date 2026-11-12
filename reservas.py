@@ -10,7 +10,6 @@ import redis
 
 SEGUNDOS_POR_DEFECTO = 300
 
-
 def clave(evento_id, asiento) -> str:
     """Clave de Redis. Formato: envivo:asiento:<evento>:<asiento>"""
     return f"envivo:asiento:{evento_id}:{asiento}"
@@ -34,8 +33,7 @@ def propietario(r: redis.Redis, evento_id, asiento) -> str | None:
 
 def segundos_restantes(r: redis.Redis, evento_id, asiento) -> int:
     """Segundos que quedan. -1 si la reserva es firme, -2 si no hay reserva."""
-    # TODO
-    raise NotImplementedError
+    return r.ttl(clave(evento_id, asiento))
 
 
 def liberar(r: redis.Redis, evento_id, asiento, usuario_id) -> bool:
@@ -46,8 +44,15 @@ def liberar(r: redis.Redis, evento_id, asiento, usuario_id) -> bool:
     **no es correcto**: entre uno y otro la reserva puede caducar y pasar a
     otro usuario, y se le borraría la suya.
     """
-    # TODO
-    raise NotImplementedError
+    script = """
+    if redis.call('GET', KEYS[1]) == ARGV[1] then
+        return redis.call('DEL', KEYS[1])
+    end
+    return 0
+    """
+
+    return r.eval(script, 1, clave(evento_id, asiento), str(usuario_id)) == 1
+    
 
 
 def confirmar(r: redis.Redis, evento_id, asiento, usuario_id) -> bool:
@@ -55,5 +60,12 @@ def confirmar(r: redis.Redis, evento_id, asiento, usuario_id) -> bool:
 
     Solo puede hacerlo el propietario. Devuelve si se ha confirmado.
     """
-    # TODO
-    raise NotImplementedError
+    script = """
+    if redis.call('GET', KEYS[1]) == ARGV[1] then
+        return redis.call('PERSIST', KEYS[1])
+        return 1
+    end
+    return 0
+    """
+    
+    return r.eval(script, 1, clave(evento_id, asiento), str(usuario_id)) == 1
