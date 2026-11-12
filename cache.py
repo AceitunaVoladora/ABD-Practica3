@@ -35,7 +35,7 @@ class CacheDocumentos:
 
         Cada acceso debe **renovar la caducidad** a `self.ttl`.
         """
-        valor = self._r.getex(self.clave(coleccion, id_documento), ex = self.ttl)
+        valor = self._r.getex(self.clave(coleccion, id_documento), ex = self.ttl) #ex: expire, caduca en 24h (init)
         
         if valor is None:
             return None

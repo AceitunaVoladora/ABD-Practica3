@@ -13,8 +13,7 @@ SEGUNDOS_POR_DEFECTO = 300
 
 def clave(evento_id, asiento) -> str:
     """Clave de Redis. Formato: envivo:asiento:<evento>:<asiento>"""
-    # TODO
-    raise NotImplementedError
+    return f"envivo:asiento:{evento_id}:{asiento}"
 
 
 def reservar(r: redis.Redis, evento_id, asiento, usuario_id,
@@ -23,14 +22,14 @@ def reservar(r: redis.Redis, evento_id, asiento, usuario_id,
 
     Dos usuarios que lo intenten a la vez: **solo uno** puede conseguirlo.
     """
-    # TODO
-    raise NotImplementedError
+    return r.set(clave(evento_id, asiento), str(usuario_id), nx = True, ex=segundos) #nx: not exists, escribe solo si no existe
 
 
 def propietario(r: redis.Redis, evento_id, asiento) -> str | None:
     """Quién tiene reservado el asiento, o None si está libre."""
-    # TODO
-    raise NotImplementedError
+    
+    return r.get(clave(evento_id, asiento))
+    
 
 
 def segundos_restantes(r: redis.Redis, evento_id, asiento) -> int:
