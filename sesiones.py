@@ -15,14 +15,12 @@ SIN_ACCESO = -1
 
 def clave_usuario(usuario: str) -> str:
     """Formato: envivo:usuario:<usuario>"""
-    # TODO
-    raise NotImplementedError
+    return f"envivo:usuario:{usuario}"
 
 
 def clave_sesion(token: str) -> str:
     """Formato: envivo:sesion:<token>"""
-    # TODO
-    raise NotImplementedError
+    return f"envivo:sesion:{token}"
 
 
 # ── Gestión de usuarios (CRUD) ──────────────────────────────────────────────
