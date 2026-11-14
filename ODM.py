@@ -184,14 +184,16 @@ class Model:
                     if direccion and (not hasattr(self, "_id") or self._location_var in self._modified_vars):
                         self._data[campo_loc] = getLocationPoint(direccion) #Creamos un nuevo campo para las coordenadas
                         self._modified_vars.add(campo_loc) #Se añade a modificado porque se ha creado
+        
+        documento = dict(self._data)
 
         if not hasattr(self, "_id"): #Es decir, comprueba si aún no hay un identificador de Mongo
-            resultado = self._db.insert_one(dict(self._data)) #Con dict() le paso una copia, para que no modifique mi _data metiendo un ObjectId
+            resultado = self._db.insert_one(documento) #Con dict() le paso una copia, para que no modifique mi _data metiendo un ObjectId
             super().__setattr__("_id", resultado.inserted_id)
             #La linea de encima asigna a la varialbe _id ese id que Mongo le ha puesto
             #Estamos llamando al método de la clase base para que ignores los "filtros" de la nuestra propia
             if self._cache is not None:
-                self._cache.set(self._db.name, resultado.inserted_id, dict(self._data)) #Guardamos en la cach el documento que acabamos de insertar
+                self._cache.set(self._db.name, resultado.inserted_id, documento) #Guardamos en la cach el documento que acabamos de insertar
         else:
             if self._modified_vars:
                 cambios = {campo: self._data[campo]  for campo in self._modified_vars}
