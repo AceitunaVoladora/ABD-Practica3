@@ -30,6 +30,8 @@ def crear_usuario(r: redis.Redis, usuario: str, nombre: str,
                   password: str, privilegios: int) -> bool:
     """Crea el usuario si no existe. Devuelve si se ha creado."""
 
+    if privilegios <= 0:
+        raise ValueError("Los privilegios deben ser positivos")
 
     script = """
     if redis.call('EXISTS', KEYS[1]) == 1 then
@@ -72,10 +74,27 @@ def obtener_usuario(r: redis.Redis, usuario: str) -> dict | None:
 
     token = datos.get("token")
 
-    if token and not r.exists(clave_sesion(token)): #Si hay un token guardado, pero ya no está activo
-        #Quitamos en redis y en la copia local el campo token
-        r.hdel(clave_usuario(usuario), "token")
-        datos.pop("token")
+    if token:
+        script = """
+        if redis.call('HGET', KEYS[1], 'token') == ARGV[1]
+           and redis.call('EXISTS', KEYS[2]) == 0 then
+            redis.call('HDEL', KEYS[1], 'token')
+            return 1
+        end
+
+        return 0
+        """
+
+        resultado = r.eval(
+            script,
+            2,
+            clave_usuario(usuario),
+            clave_sesion(token),
+            token
+        )
+
+        if resultado == 1:
+            datos.pop("token", None)
 
     #Devolvemos privilegios como un int
     datos["privilegios"] = int(datos["privilegios"])
@@ -89,9 +108,6 @@ def actualizar_usuario(r: redis.Redis, usuario: str, **campos) -> bool:
     Devuelve False si el usuario no existe.
     """
 
-    if not r.exists(clave_usuario(usuario)):
-        return False
-
     campos_permitidos = {"nombre", "password", "privilegios"}
 
     if not set(campos).issubset(campos_permitidos):
@@ -102,9 +118,32 @@ def actualizar_usuario(r: redis.Redis, usuario: str, **campos) -> bool:
         if int(campos["privilegios"]) <= 0:
             raise ValueError("Los privilegios deben ser positivos")
 
-    r.hset(clave_usuario(usuario), mapping=campos)
+    script = """
+    if redis.call('EXISTS', KEYS[1]) == 0 then
+        return 0
+    end
 
-    return True
+    for i = 1, #ARGV, 2 do
+        redis.call('HSET', KEYS[1], ARGV[i], ARGV[i+1])
+    end
+
+    return 1
+    """
+
+    argumentos = []
+
+    for campo, valor in campos.items():
+        argumentos.extend([campo, valor])
+
+    resultado = r.eval(
+        script,
+        1,
+        clave_usuario(usuario),
+        *argumentos
+    )
+
+    return resultado == 1
+
 
 
 def borrar_usuario(r: redis.Redis, usuario: str) -> bool:
