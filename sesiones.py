@@ -252,7 +252,7 @@ def login_por_token(r: redis.Redis, token: str) -> int:
         return -1
     end
 
-    local privilegios = redis.call('HGET', KEYS[1], 'privilegios')
+    local privilegios = redis.call('HGET', clave_usuario, 'privilegios')
 
     return tonumber(privilegios)
     """

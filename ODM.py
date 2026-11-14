@@ -414,6 +414,7 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
     db = client[db_name]
     if redis_uri:
         cache = CacheDocumentos(redis.Redis.from_url(redis_uri))
+        cache.configurar_limite()
     else:
         cache = None
 
