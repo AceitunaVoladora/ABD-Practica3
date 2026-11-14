@@ -72,9 +72,11 @@ def obtener_usuario(r: redis.Redis, usuario: str) -> dict | None:
     if not datos:
         return None
 
-    token = datos.get("token")
+    token = datos.get("token") 
 
-    if token:
+    if token:   #Es decir, si ha sido logeado antes
+
+        #Borrará el token si la sesión de ese token ya no existe y si el token sigue siendo el actual del usuario
         script = """
         if redis.call('HGET', KEYS[1], 'token') == ARGV[1]
            and redis.call('EXISTS', KEYS[2]) == 0 then
@@ -129,6 +131,8 @@ def actualizar_usuario(r: redis.Redis, usuario: str, **campos) -> bool:
 
     return 1
     """
+    #Ese for avanza de 2 en 2, porque los argumentos se pasan como pares campo-valor
+
 
     argumentos = []
 
@@ -190,21 +194,17 @@ def login(r: redis.Redis, usuario: str, password: str) -> tuple[int, str | None]
     local privilegios = redis.call('HGET', KEYS[1], 'privilegios')
     local token_anterior = redis.call('HGET', KEYS[1], 'token')
 
-    -- Invalidamos la sesión anterior.
     if token_anterior then
         redis.call('DEL', 'envivo:sesion:' .. token_anterior)
     end
 
-    -- Creamos la nueva sesión.
     redis.call('HSET', KEYS[2],
         'usuario', ARGV[4],
         'privilegios', privilegios
     )
 
-    -- Le asignamos una duración de un mes.
     redis.call('EXPIRE', KEYS[2], ARGV[3])
 
-    -- Guardamos el nuevo token en el usuario.
     redis.call('HSET', KEYS[1], 'token', ARGV[2])
 
     return tonumber(privilegios)
@@ -248,7 +248,6 @@ def login_por_token(r: redis.Redis, token: str) -> int:
 
     local clave_usuario = 'envivo:usuario:' .. usuario
 
-    -- El token debe seguir siendo el token actual del usuario.
     if redis.call('HGET', clave_usuario, 'token') ~= ARGV[1] then
         return -1
     end
@@ -279,7 +278,6 @@ def logout(r: redis.Redis, token: str) -> bool:
     if usuario then
         local clave_usuario = 'envivo:usuario:' .. usuario
 
-        -- Solo quitamos el token si sigue siendo el actual.
         if redis.call('HGET', clave_usuario, 'token') == ARGV[1] then
             redis.call('HDEL', clave_usuario, 'token')
         end
