@@ -100,7 +100,7 @@ class Model:
     _admissible_vars: set[str]
     _location_var: str | None = None
     _db: pymongo.collection.Collection
-    _internal_vars: set[str] = frozenset(('_modified_vars', '_required_vars', '_admissible_vars', '_db', '_data', '_location_var'))
+    _internal_vars: set[str] = frozenset(('_modified_vars', '_required_vars', '_admissible_vars', '_db', '_data', '_location_var','_cache'))
     _cache: CacheDocumentos | None = None
 
     def __init__(self, **kwargs: dict[str, str | dict | list]) -> None:
@@ -190,6 +190,8 @@ class Model:
             super().__setattr__("_id", resultado.inserted_id)
             #La linea de encima asigna a la varialbe _id ese id que Mongo le ha puesto
             #Estamos llamando al método de la clase base para que ignores los "filtros" de la nuestra propia
+            if self._cache is not None:
+                self._cache.set(self._db.name, resultado.inserted_id, dict(self._data)) #Guardamos en la cach el documento que acabamos de insertar
         else:
             if self._modified_vars:
                 cambios = {campo: self._data[campo]  for campo in self._modified_vars}
@@ -198,6 +200,8 @@ class Model:
                     {"_id": self._id},
                     {"$set": cambios}
                 )
+            if self._cache is not None:
+                self._cache.invalidar(self._db.name, self._id)
         self._modified_vars.clear() #Como ya ha sido guardado, se resetean las variables modificadas
 
         
@@ -208,6 +212,8 @@ class Model:
         """
         if hasattr(self, "_id"): #Solo borra si antes ha sido insertado
             self._db.delete_one({"_id": self._id})
+            if self._cache is not None:
+                self._cache.invalidar(self._db.name, self._id)
             object.__delattr__(self, "_id") #Le quita el id para que si se hace save, sepa que tiene que insertar,no actualizar
     
     @classmethod
@@ -383,7 +389,7 @@ class ModelCursor:
             yield object_Model                       #Es como un return, pero permite iterar lo que devuelve
 
 
-def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd", scope=globals()) -> None:
+def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd", scope=globals(),redis_uri : str | None = None) -> None:
     """ 
     Declara las clases que heredan de Model para cada uno de los 
     modelos de las colecciones definidas en definitions_path.
@@ -404,6 +410,10 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
 
     client = MongoClient(mongodb_uri)
     db = client[db_name]
+    if redis_uri:
+        cache = CacheDocumentos(redis.Redis.from_url(redis_uri))
+    else:
+        cache = None
 
     with open(definitions_path) as f:
         definitions = yaml.safe_load(f)
@@ -424,6 +434,7 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
             indexes[definicion["location_index"]] = "geosphere"
 
         scope[nombre] = type(nombre, (Model,), {})
+        scope[nombre]._cache = cache
         scope[nombre].init_class(
             db_collection=db[nombre],
             indexes=indexes,
